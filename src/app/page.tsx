@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 const API = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
 type Room = { name: string; members: number; createdAt: number };
+type ApiRoomItem = { room_name: string; members: number; updated_at?: string };
 
 export default function Home() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -21,9 +22,25 @@ export default function Home() {
   });
 
   async function refreshRooms() {
-    const res = await fetch(`${API}/rooms`);
-    const data = await res.json();
-    setRooms(data.rooms);
+    try {
+      const res = await fetch(`${API}/rooms`);
+      if (!res.ok) {
+        setRooms([]);
+        return;
+      }
+      const data = await res.json();
+      const items: ApiRoomItem[] = Array.isArray(data?.items)
+        ? (data.items as ApiRoomItem[])
+        : [];
+      const mapped: Room[] = items.map((it) => ({
+        name: it.room_name,
+        members: typeof it.members === "number" ? it.members : 0,
+        createdAt: it.updated_at ? Date.parse(it.updated_at) : Date.now(),
+      }));
+      setRooms(mapped);
+    } catch {
+      setRooms([]);
+    }
   }
 
   async function createRoom() {
@@ -33,7 +50,7 @@ export default function Home() {
       body: JSON.stringify({ room_name: roomName || undefined }),
     });
     const data = await res.json();
-    const name = data.room.name as string;
+    const name = (data?.room?.name as string) || roomName;
     window.location.href = `/room/${encodeURIComponent(
       name
     )}?name=${encodeURIComponent(yourName || "Гость")}`;
@@ -48,8 +65,8 @@ export default function Home() {
   return (
     <div className="grid gap-6">
       <div className="card">
-        <h1 style={{ marginTop: 0 }}>Байт хаус прайм</h1>
-        <p className="small"></p>
+        <h1 style={{ marginTop: 0 }}>Байт Хаус</h1>
+        <p className="small">Минимальный голосовой чат</p>
         <div className="row" style={{ marginTop: 12 }}>
           <input
             className="input"
@@ -95,7 +112,7 @@ export default function Home() {
                 </div>
               </div>
               <a
-                className="btn"
+                className="btn tonal"
                 href={`/room/${encodeURIComponent(
                   r.name
                 )}?name=${encodeURIComponent(yourName || "Гость")}`}
