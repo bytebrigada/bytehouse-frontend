@@ -1,0 +1,63 @@
+:root {
+  --radius: 16px;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+input,
+button,
+select {
+  font: inherit;
+}
+.card {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  padding: 16px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #111;
+  color: white;
+  cursor: pointer;
+}
+.btn.secondary {
+  background: white;
+  color: #111;
+}
+.input {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  width: 100%;
+}
+.list {
+  display: grid;
+  gap: 8px;
+}
+.badge {
+  padding: 2px 8px;
+  background: #eef;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+.small {
+  font-size: 12px;
+  color: #555;
+}

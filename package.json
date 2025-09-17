@@ -1,0 +1,32 @@
+{
+  "name": "bytehouse-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bunx next dev",
+    "build": "bunx next build",
+    "start": "bunx next start",
+    "lint": "bunx next lint",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.4",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "zustand": "^4.4.1",
+    "clsx": "^2.1.1",
+    "wouter": "^3.1.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "typescript": "^5.4.5",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.4"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}
