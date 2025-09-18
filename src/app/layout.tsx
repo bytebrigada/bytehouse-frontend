@@ -35,7 +35,10 @@ export default function RootLayout({
         </header>
         <div
           className="max-w-3xl"
-          style={{ margin: "0 auto", padding: "16px" }}
+          style={{
+            margin: "0 auto",
+            padding: "16px",
+          }}
         >
           {children}
         </div>

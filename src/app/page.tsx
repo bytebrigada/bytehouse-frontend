@@ -10,16 +10,7 @@ type ApiRoomItem = { room_name: string; members: number; updated_at?: string };
 export default function Home() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomName, setRoomName] = useState("");
-  const [yourName, setYourName] = useState<string>(() => {
-    return (
-      process.env.NEXT_PUBLIC_DEFAULT_NAME ||
-      (typeof window !== "undefined"
-        ? window.navigator.userAgent.includes("Windows")
-          ? "Пользователь"
-          : "Гость"
-        : "Гость")
-    );
-  });
+  const [yourName, setYourName] = useState("Гость");
 
   async function refreshRooms() {
     try {

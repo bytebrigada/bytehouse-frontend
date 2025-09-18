@@ -287,7 +287,10 @@ export default function RoomPage({
   }, [room, yourName]);
 
   return (
-    <div className="grid gap-6">
+    <div
+      className="grid gap-6"
+      style={{ gap: "16px", display: "flex", flexDirection: "column" }}
+    >
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
