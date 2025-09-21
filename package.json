@@ -1,32 +1,33 @@
 {
-  "name": "bytehouse-frontend",
-  "version": "0.1.0",
+  "name": "chat-test",
   "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "bunx next dev",
-    "build": "bunx next build",
-    "start": "bunx next start",
-    "lint": "bunx next lint",
-    "typecheck": "bunx tsc --noEmit"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "next": "14.2.4",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "zustand": "^4.4.1",
-    "clsx": "^2.1.1",
-    "wouter": "^3.1.1",
-    "uuid": "^9.0.1"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.30",
-    "@types/react": "^18.2.66",
-    "@types/react-dom": "^18.2.22",
-    "typescript": "^5.4.5",
-    "eslint": "8.57.0",
-    "eslint-config-next": "14.2.4"
-  },
-  "engines": {
-    "bun": ">=1.1.0"
+    "@eslint/js": "^9.35.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.35.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.4.0",
+    "postcss": "^8.5.6",
+    "sass-embedded": "^1.93.0",
+    "tailwindcss": "^4.1.13",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.43.0",
+    "vite": "^7.1.6"
   }
 }

@@ -1,0 +1,27 @@
+@use "../../styles/variables" as *;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: $layer2;
+  border: 1px solid $border;
+  font-size: 12px;
+  color: $muted;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $muted;
+}
+.badge[data-tone="ok"] .dot {
+  background: $ok;
+}
+.badge[data-tone="err"] .dot {
+  background: $error;
+}
+.badge[data-tone="warn"] .dot {
+  background: $warn;
+}

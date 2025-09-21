@@ -1,0 +1,75 @@
+@use "../../styles/variables" as *;
+.header {
+  background: $layer1;
+  border: 1px solid $border;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: $shadow;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.title {
+  font-weight: 700;
+  color: $text;
+  letter-spacing: 0.2px;
+}
+.form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1.4fr 1fr 1fr 0.8fr 0.8fr 0.8fr auto;
+  align-items: end;
+}
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: $muted;
+}
+input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid $border;
+  background: $input;
+  color: $text;
+  outline: none;
+}
+input:focus {
+  box-shadow: $ring;
+  border-color: $accent;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+button {
+  border: 1px solid $border;
+  background: $btnBg;
+  color: $text;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.04s ease;
+}
+button:hover {
+  filter: brightness(1.08);
+}
+button:active {
+  transform: translateY(1px);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.primary {
+  border-color: $accent;
+}
+.desktopOnly {
+  @media (max-width: 900px) {
+    display: none;
+  }
+}

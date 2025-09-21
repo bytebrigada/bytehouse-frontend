@@ -1,0 +1,90 @@
+@use "../../styles/variables" as *;
+.wrap {
+  background: $layer1;
+  border: 1px solid $border;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: $shadow;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid $border;
+  background: $layer2;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.actions button {
+  border: 1px solid $border;
+  background: transparent;
+  color: $text;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.actions button:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: $muted;
+  border: 1px solid $border;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+.log {
+  padding: 12px;
+  max-height: 70vh;
+  overflow: auto;
+}
+.entry {
+  border: 1px solid $border;
+  background: $input;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.entry[data-kind="incoming"] {
+  border-color: rgba(88, 101, 242, 0.45);
+}
+.entry[data-kind="outgoing"] {
+  border-color: rgba(59, 165, 93, 0.45);
+}
+.entry[data-kind="system"] {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.entry[data-kind="error"] {
+  border-color: rgba(237, 66, 69, 0.55);
+}
+.entry[data-kind="timeout"] {
+  border-color: rgba(250, 166, 26, 0.55);
+}
+.meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: $muted;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.kind {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid $border;
+}
+.pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: $text;
+}

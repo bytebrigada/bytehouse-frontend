@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* фон/уточнения для нашего дизайна, если нужно */
+html,
+body,
+#root {
+  height: 100%;
+}

@@ -1,0 +1,47 @@
+@use "../../styles/variables" as *;
+.footer {
+  position: sticky;
+  bottom: 0;
+  background: transparent;
+}
+.composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background: $layer1;
+  border: 1px solid $border;
+  border-radius: 16px;
+  padding: 8px;
+}
+.composer input {
+  border: none;
+  background: $input;
+  color: $text;
+  padding: 12px;
+  border-radius: 12px;
+  outline: none;
+}
+.composer input:focus {
+  box-shadow: $ring;
+  border: 1px solid $accent;
+}
+.composer button {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid $border;
+  background: $btnBg;
+  color: $text;
+}
+.composer button:hover {
+  filter: brightness(1.08);
+}
+.composer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hint {
+  color: $muted;
+  font-size: 12px;
+  margin-top: 6px;
+}
