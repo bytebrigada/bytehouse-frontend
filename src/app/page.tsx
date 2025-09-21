@@ -2,49 +2,50 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL!;
+const API = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
 
-type Room = { name: string; members: number; createdAt: number };
-type ApiRoomItem = { room_name: string; members: number; updated_at?: string };
+type Room = { name: string };
 
 export default function Home() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomName, setRoomName] = useState("");
   const [yourName, setYourName] = useState("Гость");
+  const [loading, setLoading] = useState(false);
 
   async function refreshRooms() {
     try {
-      const res = await fetch(`${API}/rooms`);
-      if (!res.ok) {
-        setRooms([]);
-        return;
-      }
+      const res = await fetch(`${API}/rooms`, { cache: "no-store" });
+      if (!res.ok) throw new Error("bad status");
       const data = await res.json();
-      const items: ApiRoomItem[] = Array.isArray(data?.items)
-        ? (data.items as ApiRoomItem[])
-        : [];
-      const mapped: Room[] = items.map((it) => ({
-        name: it.room_name,
-        members: typeof it.members === "number" ? it.members : 0,
-        createdAt: it.updated_at ? Date.parse(it.updated_at) : Date.now(),
-      }));
-      setRooms(mapped);
+      const list: string[] = Array.isArray(data?.rooms) ? data.rooms : [];
+      setRooms(list.map((name) => ({ name })));
     } catch {
       setRooms([]);
     }
   }
 
   async function createRoom() {
-    const res = await fetch(`${API}/rooms`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_name: roomName || undefined }),
-    });
-    const data = await res.json();
-    const name = (data?.room?.name as string) || roomName;
-    window.location.href = `/room/${encodeURIComponent(
-      name
-    )}?name=${encodeURIComponent(yourName || "Гость")}`;
+    if (!yourName.trim()) return alert("Введите имя");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/rooms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: roomName || "general" }),
+      });
+      const data = await res.json();
+      const name =
+        (typeof data?.new_room_name === "string" && data.new_room_name) ||
+        roomName ||
+        "general";
+      window.location.href = `/room/${encodeURIComponent(
+        name
+      )}?name=${encodeURIComponent(yourName)}`;
+    } catch (e) {
+      alert("Не удалось создать комнату");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -53,54 +54,52 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
+  const canCreate = yourName.trim().length > 0 && !loading;
+
   return (
-    <div className="grid gap-6">
-      <div className="card">
-        <h1 style={{ marginTop: 0 }}>Байт Хаус</h1>
-        <p className="small">Минимальный голосовой чат</p>
-        <div className="row" style={{ marginTop: 12 }}>
+    <div className="layout">
+      <div className="card p-24">
+        <h1 className="title">Байт Хаус</h1>
+        <p className="muted">Сосал?</p>
+
+        <div className="row mt-16">
           <input
-            className="input"
+            className="input grow"
             placeholder="Ваше имя (например, Николай)"
             value={yourName}
             onChange={(e) => setYourName(e.target.value)}
           />
         </div>
-        <div className="row" style={{ marginTop: 8 }}>
+
+        <div className="row mt-8 gap-8">
           <input
-            className="input"
+            className="input grow"
             placeholder="Название комнаты (опционально)"
             value={roomName}
             onChange={(e) => setRoomName(e.target.value)}
           />
-          <button className="btn" onClick={createRoom}>
-            Создать и войти
+          <button className="btn" disabled={!canCreate} onClick={createRoom}>
+            {loading ? "Создаю..." : "Создать и войти"}
           </button>
         </div>
       </div>
-      <div className="card">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>Комнаты</h3>
+
+      <div className="card p-24">
+        <div className="row between">
+          <h3 className="h3">Комнаты</h3>
           <button className="btn secondary" onClick={refreshRooms}>
             Обновить
           </button>
         </div>
-        <div className="list" style={{ marginTop: 10 }}>
+
+        <div className="list mt-12">
           {rooms.length === 0 && (
-            <div className="small">Пока пусто — создайте первую комнату.</div>
+            <div className="muted">Пока пусто — создайте первую комнату.</div>
           )}
           {rooms.map((r) => (
-            <div
-              key={r.name}
-              className="row"
-              style={{ justifyContent: "space-between" }}
-            >
+            <div key={r.name} className="row between item">
               <div>
-                <div className="mono">{r.name}</div>
-                <div className="small">
-                  {new Date(r.createdAt).toLocaleString()} • участников:{" "}
-                  {r.members}
-                </div>
+                <div className="mono channel"># {r.name}</div>
               </div>
               <a
                 className="btn tonal"
@@ -114,8 +113,9 @@ export default function Home() {
           ))}
         </div>
       </div>
-      <div className="small">
-        Backend URL: <span className="mono">{API}</span>
+
+      <div className="muted small">
+        Backend URL: <span className="mono">{API || "—"}</span>
       </div>
     </div>
   );
