@@ -2,7 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE_URL;
+const ENV_WS_BASE =
+  typeof process !== "undefined"
+    ? process.env.NEXT_PUBLIC_WS_BASE_URL
+    : undefined;
+
+function getWsBase(): string {
+  if (ENV_WS_BASE && ENV_WS_BASE.trim()) return ENV_WS_BASE.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${proto}://${window.location.host}/ws`;
+  }
+  return "wss://bytehouse.ru/ws"; // безопасный дефолт для SSR, заменится в браузере
+}
 
 type ChatMsg = {
   id: string;
@@ -41,6 +53,11 @@ export default function RoomPage({ params }: { params: { room: string } }) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string>(uuid());
+  const helloSentRef = useRef(false); // защищает от повторного hello при dev-двойном эффекте
+  const closingRef = useRef(false); // чтобы понимать, закрыли мы сами или оборвалось
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   // voice mock
@@ -51,31 +68,82 @@ export default function RoomPage({ params }: { params: { room: string } }) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
 
+  function now() {
+    const d = new Date();
+    return d.toLocaleTimeString();
+  }
   function addLog(s: any) {
-    setLog((prev) => [String(s), ...prev].slice(0, 200));
+    const line = `[${now()}] ${String(s)}`;
+    console.log(line);
+    setLog((prev) => [line, ...prev].slice(0, 400));
   }
 
-  useEffect(() => {
-    const ws = new WebSocket(`${WS_BASE}/rooms/join`);
+  function clearReconnectTimer() {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }
+
+  function scheduleReconnect() {
+    // не риконнектимся, если мы сами закрываем (unmount / смена комнаты/имени)
+    if (closingRef.current) return;
+    const attempt = reconnectAttemptsRef.current++;
+    const delay = Math.min(1000 * 2 ** attempt, 15000); // эксп. бэкофф до 15с
+    addLog(
+      `WS: планирую переподключение через ${delay} мс (попытка ${attempt + 1})`
+    );
+    clearReconnectTimer();
+    reconnectTimerRef.current = setTimeout(() => {
+      connect();
+    }, delay);
+  }
+
+  function connect() {
+    const WS_BASE = getWsBase();
+    const url = new URL(`${WS_BASE}/rooms/join`);
+
+    // Если предыдущий сокет ещё жив — аккуратно закрываем
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        addLog("WS: закрываю предыдущее соединение перед новым connect()");
+        wsRef.current.close(1000, "reconnect");
+      }
+    } catch {}
+
+    addLog(`WS: создаю соединение -> ${url.toString()}`);
+    const ws = new WebSocket(url.toString());
     wsRef.current = ws;
+    closingRef.current = false;
 
     ws.onopen = () => {
       setConnected(true);
-      const hello = {
-        name: yourName,
-        room_name: room,
-        session_id: sessionIdRef.current,
-      };
-      ws.send(JSON.stringify(hello));
-      addLog("WS open + hello sent");
+      reconnectAttemptsRef.current = 0;
+      clearReconnectTimer();
+
+      // Отправляем hello ОДИН раз на жизненный цикл вкладки/сессии,
+      // даже если StrictMode дёрнет эффект дважды.
+      if (!helloSentRef.current) {
+        const hello = {
+          name: yourName,
+          room_name: room,
+          session_id: sessionIdRef.current,
+        };
+        ws.send(JSON.stringify(hello));
+        helloSentRef.current = true;
+        addLog("WS: open -> hello sent");
+      } else {
+        addLog("WS: open (hello уже отправлялся ранее, пропускаю)");
+      }
     };
 
     ws.onmessage = (ev) => {
+      // Лёгкая телеметрия входящих сообщений
+      addLog(`WS: message ${ev.data?.toString()?.slice(0, 100) ?? ""}`);
+
       try {
         const data = JSON.parse(ev.data);
-        // Поддерживаем два формата входящих сообщений:
-        // 1) голые {text, name?, ts?}
-        // 2) завернутые в объект { type: "message", data: {...} }
+
         const payload =
           data?.type === "message" && data?.data ? data.data : data;
 
@@ -96,7 +164,6 @@ export default function RoomPage({ params }: { params: { room: string } }) {
           setMembers((prev) =>
             prev.includes(name) ? prev : [...prev, name].slice(-100)
           );
-          // если сервер прислал "кто-то печатает"
         } else if (data?.type === "typing" && typeof data?.name === "string") {
           setTyping((prev) => {
             const next = new Set(prev);
@@ -111,22 +178,50 @@ export default function RoomPage({ params }: { params: { room: string } }) {
             });
           }, 1500);
         }
-      } catch {
-        // игнор
+      } catch (e) {
+        addLog(`WS: parse error ${String(e)}`);
       }
     };
 
-    ws.onclose = () => {
-      setConnected(false);
-      addLog("WS closed");
+    ws.onerror = (e) => {
+      // Браузер часто не даёт деталей, но отметим сам факт
+      addLog("WS: onerror (детали недоступны — смотри Network→WS в DevTools)");
     };
 
+    ws.onclose = (ev) => {
+      setConnected(false);
+      wsRef.current = null;
+      addLog(
+        `WS: closed code=${ev.code} reason="${ev.reason}" wasClean=${ev.wasClean}`
+      );
+
+      if (!closingRef.current) {
+        // неожиданный разрыв — пробуем переподключиться
+        scheduleReconnect();
+      }
+    };
+  }
+
+  // Основной эффект соединения
+  useEffect(() => {
+    addLog(
+      `mount/useEffect: room="${room}" name="${yourName}" sid=${sessionIdRef.current}`
+    );
+    helloSentRef.current = false; // новый "жизненный цикл" hello для этой комнаты/имени
+    reconnectAttemptsRef.current = 0;
+    clearReconnectTimer();
+    connect();
+
     return () => {
+      addLog("unmount/cleanup: закрываю WS");
+      closingRef.current = true;
+      clearReconnectTimer();
       try {
-        ws.close();
+        wsRef.current?.close(1000, "component unmount");
       } catch {}
       wsRef.current = null;
     };
+    // меняем соединение при смене комнаты или имени
   }, [room, yourName]);
 
   useEffect(() => {
@@ -135,16 +230,29 @@ export default function RoomPage({ params }: { params: { room: string } }) {
 
   function sendText() {
     const t = input.trim();
-    if (!t || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
+    if (!t) return;
+    const ws = wsRef.current;
+    if (!ws) {
+      addLog("sendText: нет соединения");
       return;
-    wsRef.current.send(JSON.stringify({ text: t }));
+    }
+    if (ws.readyState !== WebSocket.OPEN) {
+      addLog(`sendText: сокет не открыт (readyState=${ws.readyState})`);
+      return;
+    }
+    const payload = { text: t };
+    ws.send(JSON.stringify(payload));
+    addLog(`sendText: "${t}"`);
     setInput("");
   }
 
   function notifyTyping() {
-    // необязательный "мок" события typing (на случай, если бек слушает)
     try {
-      wsRef.current?.send(JSON.stringify({ type: "typing", name: yourName }));
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "typing", name: yourName }));
+        addLog("notifyTyping sent");
+      }
     } catch {}
   }
 
@@ -160,6 +268,7 @@ export default function RoomPage({ params }: { params: { room: string } }) {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       setLevel(0);
+      addLog("Mic: off");
       return;
     }
     try {
@@ -180,27 +289,28 @@ export default function RoomPage({ params }: { params: { room: string } }) {
       const data = new Uint8Array(analyser.frequencyBinCount);
       const loop = () => {
         analyser.getByteTimeDomainData(data);
-        // расчёт RMS для VU
         let sum = 0;
         for (let i = 0; i < data.length; i++) {
           const v = (data[i] - 128) / 128;
           sum += v * v;
         }
         const rms = Math.sqrt(sum / data.length);
-        setLevel(rms); // 0..~0.5
+        setLevel(rms);
         rafRef.current = requestAnimationFrame(loop);
       };
       loop();
       setMicOn(true);
+      addLog("Mic: on");
     } catch {
       alert("Нужен доступ к микрофону");
+      addLog("Mic: permission denied");
     }
   }
 
   const youTyping = input.length > 0;
   useEffect(() => {
     if (!youTyping) return;
-    const t = setTimeout(notifyTyping, 100);
+    const t = setTimeout(notifyTyping, 120);
     return () => clearTimeout(t);
   }, [input]);
 
