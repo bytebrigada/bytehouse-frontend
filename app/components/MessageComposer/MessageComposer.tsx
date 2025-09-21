@@ -38,7 +38,7 @@ export default function MessageComposer({
       <div className={styles.hint}>
         Отправляется как JSON:{" "}
         <code>
-          {"{"}"text": "..."{"}"}
+          {"{"}&quot;text&quot;: &quot;...&quot;{"}"}
         </code>
       </div>
     </div>

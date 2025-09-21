@@ -1,6 +1,6 @@
 import React from "react";
 import styles from "./Log.module.scss";
-import type { LogEntry } from "../../types";
+import type { LogEntry } from "@/types/chat";
 
 export default function Log({
   logs,
