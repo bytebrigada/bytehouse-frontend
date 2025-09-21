@@ -1,7 +1,8 @@
-import { useWebSocketChat } from "./hooks/useWebSocketChat";
-import Header from "./components/Header/Header";
-import Log from "./components/Log/Log";
-import MessageComposer from "./components/MessageComposer/MessageComposer";
+"use client";
+import { useWebSocketChat } from "@/hooks/useWebSocketChat";
+import Header from "@/app/components/Header/Header";
+import Log from "@/app/components/Log/Log";
+import MessageComposer from "@/app/components/MessageComposer/MessageComposer";
 
 export default function App() {
   const chat = useWebSocketChat();

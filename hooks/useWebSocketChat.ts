@@ -1,10 +1,11 @@
+import "client-only";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   JoinRoomInput,
   LogEntry,
   LogKind,
   OutgoingMessage,
-} from "../types";
+} from "@/types/chat";
 
 const now = () => new Date().toLocaleTimeString();
 const randomName = () => {
@@ -39,7 +40,7 @@ export function useWebSocketChat() {
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!name) setName(randomName()); /* once */
+    if (!name) setName(randomName());
   }, []);
 
   useEffect(() => {
