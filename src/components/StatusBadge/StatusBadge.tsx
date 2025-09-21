@@ -1,4 +1,3 @@
-import React from "react";
 import styles from "./StatusBadge.module.scss";
 
 export default function StatusBadge({

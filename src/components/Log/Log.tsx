@@ -11,7 +11,7 @@ export default function Log({
   setAutoscroll,
 }: {
   logs: LogEntry[];
-  logEndRef: React.RefObject<HTMLDivElement>;
+  logEndRef: React.RefObject<HTMLDivElement | null>;
   onCopy: () => void;
   onClear: () => void;
   autoscroll: boolean;

@@ -52,7 +52,7 @@ export default function App() {
   const wsRef = useRef<WebSocket | null>(null);
   const dialTimerRef = useRef<number | null>(null);
   const readTimerRef = useRef<number | null>(null);
-  const logEndRef = useRef<HTMLDivElement | null>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!name) setName(randomName()); /* once */
