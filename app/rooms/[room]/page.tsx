@@ -29,6 +29,7 @@ export default function RoomPage() {
       () => chat.append("error", "не удалось скопировать лог")
     );
   };
+
   return (
     <div className="container">
       <Header

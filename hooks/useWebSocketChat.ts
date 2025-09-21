@@ -186,6 +186,7 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
 
       resetReadDeadlineTimer();
     });
+
     ws.addEventListener("message", (ev) => {
       resetReadDeadlineTimer();
       try {

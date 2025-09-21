@@ -21,6 +21,7 @@ interface Props {
   onCopyLog: () => void;
   onClearLog: () => void;
 }
+
 export default function Header(props: Props) {
   const {
     url,
@@ -70,6 +71,7 @@ export default function Header(props: Props) {
           <span>Room</span>
           <input value={room} readOnly type="text" />
         </label>
+
         <label>
           <span>Name</span>
           <input
@@ -107,6 +109,7 @@ export default function Header(props: Props) {
             type="number"
           />
         </label>
+
         <div className={styles.actions}>
           <button type="button" onClick={onConnect} className={styles.primary}>
             Подключиться
