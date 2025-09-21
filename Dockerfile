@@ -2,25 +2,22 @@
 FROM oven/bun:1-alpine
 
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
 
-# 1) Сначала манифесты — кеш зависимостей
+# Зависимости (dev тоже нужны для сборки)
 COPY package.json bun.lock ./
-
-# 2) Установка зависимостей (dev тоже нужны для сборки)
 RUN --mount=type=cache,target=/root/.cache/bun \
     bun install --frozen-lockfile
 
-# 3) Код
+# Исходники
 COPY . .
 
-# 4) Сборка Next
-# (предполагается, что в package.json есть "build": "next build")
-RUN bun run build
+# Сборка Next
+RUN bun x next build
 
-# 5) Запуск прод-сервера Next
+# Прод-запуск через next start (в Bun-образе нет node, поэтому server.js не подойдёт)
 USER bun
 EXPOSE 3000
 ENV PORT=3000
-# (предполагается, что в package.json есть "start": "next start -p ${PORT:-3000}")
-CMD ["bun", "run", "start"]
+CMD ["bun", "x", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
