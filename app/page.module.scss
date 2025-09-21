@@ -37,8 +37,9 @@
       color: #c7d2fe;
     }
     input {
-      background: #111827;
-      border: 1px solid #1f2937;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #1e1f22;
+
       color: #e5e7eb;
       padding: 10px 12px;
       border-radius: 10px;
@@ -79,7 +80,7 @@
 
 .listHeader {
   margin: 18px 2px 8px;
-  color: #475569;
+  color: #ffffff;
   font-size: 14px;
 }
 
@@ -90,9 +91,9 @@
 }
 .card {
   text-align: left;
-  background: #0b1220;
   color: #e2e8f0;
-  border: 1px solid #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1e1f22;
   border-radius: 14px;
   padding: 14px;
   cursor: pointer;
@@ -124,16 +125,16 @@
 .empty {
   grid-column: 1 / -1;
   padding: 20px;
-  background: #0b1220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1e1f22;
   color: #cbd5e1;
-  border: 1px dashed #334155;
   border-radius: 14px;
 }
 
 .detailCard {
   margin-top: 16px;
-  background: #0b1220;
-  border: 1px solid #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1e1f22;
   border-radius: 14px;
   padding: 16px;
   display: grid;

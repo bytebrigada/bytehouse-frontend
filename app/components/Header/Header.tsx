@@ -3,13 +3,12 @@ import StatusBadge from "../StatusBadge/StatusBadge";
 
 interface Props {
   url: string;
-  room: string;
+  room: string; // readonly — из маршрута
   name: string;
   dialSec: number;
   writeSec: number;
   readSec: number;
   setUrl: (v: string) => void;
-  setRoom: (v: string) => void;
   setName: (v: string) => void;
   setDialSec: (n: number) => void;
   setWriteSec: (n: number) => void;
@@ -19,8 +18,9 @@ interface Props {
   connected: boolean;
   statusText: string;
   statusTone: "ok" | "err" | "warn" | "muted";
+  onCopyLog: () => void;
+  onClearLog: () => void;
 }
-
 export default function Header(props: Props) {
   const {
     url,
@@ -30,7 +30,6 @@ export default function Header(props: Props) {
     writeSec,
     readSec,
     setUrl,
-    setRoom,
     setName,
     setDialSec,
     setWriteSec,
@@ -40,6 +39,8 @@ export default function Header(props: Props) {
     connected,
     statusText,
     statusTone,
+    onCopyLog,
+    onClearLog,
   } = props;
   return (
     <div className={styles.header}>
@@ -55,22 +56,19 @@ export default function Header(props: Props) {
         }}
       >
         <label>
-          <span>WebSocket URL</span>
+          <span>WebSocket base</span>
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             required
             type="url"
+            placeholder="wss://bytehouse.ru/ws/rooms"
           />
         </label>
+
         <label>
           <span>Room</span>
-          <input
-            value={room}
-            onChange={(e) => setRoom(e.target.value)}
-            required
-            type="text"
-          />
+          <input value={room} readOnly type="text" />
         </label>
         <label>
           <span>Name</span>
@@ -81,6 +79,7 @@ export default function Header(props: Props) {
             placeholder="user-xxxxxx"
           />
         </label>
+
         <label className={styles.desktopOnly}>
           <span>Dial timeout, s</span>
           <input
@@ -114,6 +113,12 @@ export default function Header(props: Props) {
           </button>
           <button type="button" onClick={onDisconnect} disabled={!connected}>
             Отключиться
+          </button>
+          <button type="button" onClick={onCopyLog}>
+            Копировать лог
+          </button>
+          <button type="button" onClick={onClearLog}>
+            Очистить лог
           </button>
         </div>
       </form>

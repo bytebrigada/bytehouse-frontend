@@ -1,11 +1,14 @@
 "use client";
+import { useParams } from "next/navigation";
 import { useWebSocketChat } from "@/hooks/useWebSocketChat";
 import Header from "@/app/components/Header/Header";
-import Log from "@/app/components/Log/Log";
+import Chat from "@/app/components/Chat/Chat";
 import MessageComposer from "@/app/components/MessageComposer/MessageComposer";
 
-export default function App() {
-  const chat = useWebSocketChat();
+export default function RoomPage() {
+  const params = useParams<{ id: string }>();
+  const roomId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const chat = useWebSocketChat({ roomFromPath: roomId });
 
   const copyLog = () => {
     const serialized = chat.logs
@@ -26,7 +29,6 @@ export default function App() {
       () => chat.append("error", "не удалось скопировать лог")
     );
   };
-
   return (
     <div className="container">
       <Header
@@ -37,7 +39,6 @@ export default function App() {
         writeSec={chat.writeSec}
         readSec={chat.readSec}
         setUrl={chat.setUrl}
-        setRoom={chat.setRoom}
         setName={chat.setName}
         setDialSec={chat.setDialSec}
         setWriteSec={chat.setWriteSec}
@@ -47,15 +48,15 @@ export default function App() {
         connected={chat.connected}
         statusText={chat.status.text}
         statusTone={chat.status.tone}
+        onCopyLog={copyLog}
+        onClearLog={() => chat.setLogs([])}
       />
 
-      <Log
-        logs={chat.logs}
-        logEndRef={chat.logEndRef}
-        onCopy={copyLog}
-        onClear={() => chat.setLogs([])}
+      <Chat
+        groups={chat.groups}
         autoscroll={chat.autoscroll}
         setAutoscroll={chat.setAutoscroll}
+        chatEndRef={chat.chatEndRef}
       />
 
       <MessageComposer
