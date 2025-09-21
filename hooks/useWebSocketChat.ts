@@ -1,34 +1,73 @@
 "use client";
 import "client-only";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
+  Identity,
   LogEntry,
   LogKind,
-  OutgoingMessage,
   ServerMessage,
   GroupedMessages,
 } from "@/types/chat";
 
+const STORAGE_NAME_KEY = "wschat_name";
+const STORAGE_SID_KEY = "wschat_sid";
+
 const now = () => new Date().toLocaleTimeString();
-const randomName = () => {
-  const id = (
-    crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
-  )
-    .toString()
-    .replace(/-/g, "")
-    .slice(0, 8);
-  return `user-${id}`;
-};
+const newSid = () =>
+  crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
-  // БАЗОВЫЙ url до каталога rooms (без окончания /)
-  const [url, setUrl] = useState("wss://bytehouse.ru/ws/rooms");
-  const [room, setRoom] = useState(roomFromPath);
-  const [name, setName] = useState("");
-  const [dialSec, setDialSec] = useState(30);
-  const [writeSec, setWriteSec] = useState(5);
-  const [readSec, setReadSec] = useState(0);
+// Вспомогательная функция: безопасное объединение входящих сообщений без дублей
+function mergeMessages(
+  prev: ServerMessage[],
+  incoming: ServerMessage[],
+  mySid?: string
+): ServerMessage[] {
+  if (!incoming.length) return prev;
+  const byId = new Map(prev.map((m) => [m.message_id, m]));
 
+  const result = [...prev];
+
+  for (const inc of incoming) {
+    // 1) Если пришло сообщение с таким же message_id — заменяем (на случай апдейтов)
+    const existing = byId.get(inc.message_id);
+    if (existing) {
+      const idx = result.findIndex((m) => m.message_id === inc.message_id);
+      if (idx !== -1) result[idx] = { ...existing, ...inc };
+      continue;
+    }
+
+    // 2) Если это echo моего локального сообщения (по эвристике: мой sid + тот же текст + близкое время)
+    if (mySid && inc.user?.session_id === mySid) {
+      const echoIdx = result.findIndex((m) => {
+        if (m.user?.session_id !== mySid) return false;
+        if (!m.__local) return false;
+        if (m.text !== inc.text) return false;
+        // в окне 5 секунд
+        const dt = Math.abs(
+          new Date(inc.send_time).getTime() - new Date(m.send_time).getTime()
+        );
+        return dt <= 5000;
+      });
+      if (echoIdx !== -1) {
+        // заменяем локальное сообщение серверным
+        result[echoIdx] = { ...inc, __local: false } as ServerMessage & {
+          __local?: boolean;
+        };
+        byId.set(inc.message_id, result[echoIdx]);
+        continue;
+      }
+    }
+
+    // 3) Обычная вставка нового сообщения в конец
+    result.push(inc);
+    byId.set(inc.message_id, inc);
+  }
+
+  return result;
+}
+
+export function useWebSocketChat({ roomId }: { roomId: string }) {
+  const [identity, setIdentity] = useState<Identity | null>(null);
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<{
     text: string;
@@ -37,10 +76,7 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [autoscroll, setAutoscroll] = useState(true);
-
   const [messages, setMessages] = useState<ServerMessage[]>([]);
-  const [mySessionId, setMySessionId] = useState<string | null>(null);
-  const mySessionIdRef = useRef<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const dialTimerRef = useRef<number | null>(null);
@@ -48,17 +84,41 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
   const logEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const dialSec = 30,
+    writeSec = 5,
+    readSec = 0;
+
+  // 1) Инициализация identity из LS
   useEffect(() => {
-    // имя по умолчанию
-    if (!name) setName(randomName());
+    try {
+      const name = localStorage.getItem(STORAGE_NAME_KEY) || "";
+      const sid = localStorage.getItem(STORAGE_SID_KEY) || "";
+      if (name && sid) setIdentity({ name, session_id: sid });
+    } catch {}
   }, []);
 
-  useEffect(() => {
-    // если меняется id в пути — синхронизируем стейт комнаты
-    setRoom(roomFromPath);
-  }, [roomFromPath]);
+  const needName = !identity;
 
-  // автоскролл: либо по логам, либо по чату
+  const saveIdentity = useCallback((name: string) => {
+    const sid = newSid();
+    const ident: Identity = { name, session_id: sid };
+    setIdentity(ident);
+    try {
+      localStorage.setItem(STORAGE_NAME_KEY, name);
+      localStorage.setItem(STORAGE_SID_KEY, sid);
+    } catch {}
+    return ident;
+  }, []);
+
+  const clearIdentity = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_NAME_KEY);
+      localStorage.removeItem(STORAGE_SID_KEY);
+    } catch {}
+    setIdentity(null);
+  }, []);
+
+  // автоскролл
   useEffect(() => {
     if (!autoscroll) return;
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -98,10 +158,7 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
     const ms = Math.max(0, Math.floor(readSec * 1000));
     if (ms === 0) return;
     readTimerRef.current = window.setTimeout(() => {
-      append(
-        "timeout",
-        "read deadline exceeded (контекст истёк) — продолжим слушать"
-      );
+      append("timeout", "read deadline exceeded — продолжаем слушать");
       resetReadDeadlineTimer();
     }, ms);
   };
@@ -110,9 +167,7 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
     const ws = wsRef.current;
     if (!ws) throw new Error("нет активного соединения");
     const writeMs = Math.max(0, Math.floor(writeSec * 1000));
-    const trySend = () => {
-      ws.send(JSON.stringify(payload));
-    };
+    const trySend = () => ws.send(JSON.stringify(payload));
     if (writeMs === 0) return void trySend();
     const start = performance.now();
     await new Promise<void>((resolve, reject) => {
@@ -135,18 +190,41 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
     });
   }
 
+  async function fetchHistory(roomUuid: string) {
+    try {
+      setStatus({ text: "loading history…", tone: "warn" });
+      const res = await fetch(
+        `https://bytehouse.ru/api/rooms/${encodeURIComponent(
+          roomUuid
+        )}/messages`
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      const arr: ServerMessage[] = Array.isArray(data?.messages)
+        ? data.messages
+        : [];
+      setMessages(arr);
+      append("system", `history loaded: ${arr.length} messages`);
+    } catch (e) {
+      append("error", `history error: ${(e as Error).message}`);
+    }
+  }
+
   function connect() {
+    if (!identity) {
+      setStatus({ text: "enter name to connect", tone: "warn" });
+      return;
+    }
     if (
       wsRef.current &&
       (wsRef.current.readyState === WebSocket.OPEN ||
         wsRef.current.readyState === WebSocket.CONNECTING)
     )
       return;
-    setStatus({ text: "connecting…", tone: "warn" });
 
-    // Строим URL: `${base}/rooms/${room}`
-    const base = url.replace(/\/$/, "");
-    const endpoint = `${base}/${encodeURIComponent(room)}`;
+    setStatus({ text: "connecting…", tone: "warn" });
+    const endpoint = "wss://bytehouse.ru/ws/rooms/join";
 
     let ws: WebSocket;
     try {
@@ -176,14 +254,27 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
         dialTimerRef.current = null;
       }
       setConnected(true);
+      setStatus({ text: "joining…", tone: "warn" });
+
+      const join = {
+        session_id: identity.session_id,
+        name: identity.name,
+        room_id: roomId,
+      };
+
+      try {
+        await safeSendJSON(join);
+        append("system", `joined as ${join.name} to room ${join.room_id}`);
+      } catch (e) {
+        append("error", `join send error: ${(e as Error).message}`);
+        try {
+          ws.close(1011, "join failed");
+        } catch {}
+        return;
+      }
+
+      await fetchHistory(roomId);
       setStatus({ text: "connected", tone: "ok" });
-
-      // Ничего не шлём (никаких join). Просто ждём сообщения.
-      append(
-        "system",
-        `Connected to room \"${room}\" at ${endpoint}. Type messages and press Enter.`
-      );
-
       resetReadDeadlineTimer();
     });
 
@@ -194,33 +285,21 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
         if (!raw) return;
         const parsed = JSON.parse(raw);
 
-        // Сервер может прислать одно сообщение или массив
-        const incoming: ServerMessage[] = Array.isArray(parsed)
-          ? parsed
-          : [parsed];
+        let incoming: ServerMessage[] = [];
+        if (Array.isArray(parsed)) {
+          incoming = parsed as ServerMessage[];
+        } else if (parsed && Array.isArray(parsed.messages)) {
+          incoming = parsed.messages as ServerMessage[];
+        } else if (parsed && parsed.message) {
+          incoming = [parsed.message as ServerMessage];
+        } else if (parsed && parsed.message_id) {
+          incoming = [parsed as ServerMessage];
+        }
+        if (!incoming.length) return;
 
-        setMessages((prev) => {
-          const next = [...prev, ...incoming];
-
-          // Заодно попробуем зафиксировать мой session_id
-          if (!mySessionIdRef.current) {
-            for (let i = incoming.length - 1; i >= 0; i--) {
-              const m = incoming[i];
-              if (
-                m?.user?.name &&
-                m?.user?.session_id &&
-                m.user.name === name
-              ) {
-                mySessionIdRef.current = m.user.session_id;
-                setMySessionId(m.user.session_id);
-                break;
-              }
-            }
-          }
-
-          return next;
-        });
-
+        setMessages((prev) =>
+          mergeMessages(prev, incoming, identity?.session_id)
+        );
         append("incoming", incoming);
       } catch {
         append("incoming", ev.data);
@@ -229,7 +308,7 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
 
     ws.addEventListener("error", () => {
       setStatus({ text: "error", tone: "err" });
-      append("error", "read error: произошла ошибка сокета");
+      append("error", "socket error");
     });
 
     ws.addEventListener("close", (ev) => {
@@ -246,28 +325,56 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
     } catch {}
   }
 
+  function exit() {
+    disconnect("exit");
+    clearIdentity();
+    setMessages([]);
+    setLogs([]);
+  }
+
   async function sendMessage(value: string) {
     const v = value.trim();
     if (!v) return;
-    const msg: OutgoingMessage = { text: v };
+    if (!identity) {
+      append("error", "нет identity — введите имя и переподключитесь");
+      return;
+    }
+
+    // Оптимистично добавляем сообщение в чат сразу
+    const tempId = `local-${
+      crypto.randomUUID?.() ?? Math.random().toString(36)
+    }`;
+    const optimistic: ServerMessage & { __local?: boolean } = {
+      message_id: tempId,
+      text: v,
+      send_time: new Date().toISOString(),
+      user: { session_id: identity.session_id, name: identity.name },
+      __local: true,
+    } as never;
+
+    setMessages((prev) => [...prev, optimistic]);
+
     try {
-      await safeSendJSON(msg);
-      // НЕ добавляем локально в messages — ждём echo от сервера
-      append("outgoing", msg);
+      // Передаём текст. Если бэкенд поддерживает client_message_id — пошлём, чтобы потом сматчить echo
+      await safeSendJSON({ text: v });
+      append("outgoing", { text: v });
     } catch (e) {
       append("error", `send error: ${(e as Error).message}`);
+      // Помечаем локальное сообщение как неотправленное
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.message_id === tempId ? { ...m, __failed: true } : m
+        )
+      );
       disconnect("send failed");
     }
   }
 
-  // Группировка подряд идущих сообщений по session_id
+  // группировка подряд по session_id
   const groups: GroupedMessages[] = useMemo(() => {
     const out: GroupedMessages[] = [];
     for (const m of messages) {
-      const mine = mySessionId
-        ? m.user.session_id === mySessionId
-        : m.user.name === name; // fallback пока не узнали свой session_id
-
+      const mine = !!identity && m.user.session_id === identity.session_id;
       const last = out[out.length - 1];
       if (last && last.session_id === m.user.session_id && last.mine === mine) {
         last.items.push({
@@ -286,30 +393,17 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
       }
     }
     return out;
-  }, [messages, mySessionId, name]);
-
-  const statusDotClass = useMemo(
-    () => ({ ok: "ok", err: "err", warn: "warn", muted: "muted" }[status.tone]),
-    [status.tone]
-  );
+  }, [messages, identity]);
 
   return {
-    // state
-    url,
-    room,
-    name,
-    dialSec,
-    writeSec,
-    readSec,
-    setUrl,
-    // room берём из маршрута, но экспортируем readonly для UI
-    setName,
-    setDialSec,
-    setWriteSec,
-    setReadSec,
+    identity,
+    needName,
+    saveIdentity,
+    clearIdentity,
+
+    roomId,
     connected,
     status,
-    statusDotClass,
     logs,
     setLogs,
     append,
@@ -317,12 +411,13 @@ export function useWebSocketChat({ roomFromPath }: { roomFromPath: string }) {
     setAutoscroll,
     logEndRef,
     chatEndRef,
+
     messages,
     groups,
-    mySessionId,
-    // actions
+
     connect,
     disconnect,
+    exit,
     sendMessage,
   } as const;
 }
