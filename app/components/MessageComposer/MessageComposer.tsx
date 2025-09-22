@@ -35,12 +35,6 @@ export default function MessageComposer({
           Отправить
         </button>
       </div>
-      <div className={styles.hint}>
-        Отправляется как JSON:{" "}
-        <code>
-          {"{"}&quot;text&quot;: &quot;...&quot;{"}"}
-        </code>
-      </div>
     </div>
   );
 }
